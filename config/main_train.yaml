@@ -1,6 +1,7 @@
 device: "cuda"
 seed: 10
-num_procs: 8
+num_procs: 32
+verbose: false
 
 # algorithmic components
 defaults:

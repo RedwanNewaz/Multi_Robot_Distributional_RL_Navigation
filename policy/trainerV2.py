@@ -3,7 +3,6 @@ import numpy as np
 import os
 import copy
 import time
-from tqdm import tqdm
 
 class Trainer():
     def __init__(self,
@@ -19,7 +18,7 @@ class Trainer():
                  initial_eps=0.6,
                  final_eps=0.05
                  ):
-
+        
         self.train_env = train_env
         self.eval_env = eval_env
         self.cooperative_agent = cooperative_agent
@@ -51,12 +50,12 @@ class Trainer():
         self.eval_obs = []
         self.eval_objs = []
 
-    def create_eval_configs(self, eval_schedule):
+    def create_eval_configs(self,eval_schedule):
         self.eval_config.clear()
 
         count = 0
-        for i, num_episode in enumerate(eval_schedule["num_episodes"]):
-            for _ in range(num_episode):
+        for i,num_episode in enumerate(eval_schedule["num_episodes"]):
+            for _ in range(num_episode): 
                 self.eval_env.num_cooperative = eval_schedule["num_cooperative"][i]
                 self.eval_env.num_non_cooperative = eval_schedule["num_non_cooperative"][i]
                 self.eval_env.num_cores = eval_schedule["num_cores"][i]
@@ -69,8 +68,8 @@ class Trainer():
                 self.eval_config.append(self.eval_env.episode_data())
                 count += 1
 
-    def save_eval_config(self, directory):
-        file = os.path.join(directory, "eval_configs.json")
+    def save_eval_config(self,directory):
+        file = os.path.join(directory,"eval_configs.json")
         with open(file, "w+") as f:
             json.dump(self.eval_config, f)
 
@@ -79,42 +78,41 @@ class Trainer():
               eval_freq,
               eval_log_path,
               verbose=True):
-
-        states, _, _ = self.train_env.reset()
+        
+        states,_,_ = self.train_env.reset()
 
         # # Sample CVaR value from (0.0,1.0)
         # cvar = 1 - np.random.uniform(0.0, 1.0)
 
-        # current episode
+        # current episode 
         ep_rewards = np.zeros(len(self.train_env.robots))
-        ep_deactivated_t = [-1] * len(self.train_env.robots)
+        ep_deactivated_t = [-1]*len(self.train_env.robots)
         ep_length = 0
         ep_num = 0
-
-        pbar = tqdm(total=total_timesteps, desc="Training Progress")
+        
         while self.current_timestep <= total_timesteps:
-
+            
             # start_all = time.time()
             eps = self.linear_eps(total_timesteps)
-
-            # gather actions for robots from agents
+            
+            # gather actions for robots from agents 
             # start_1 = time.time()
             actions = []
-            for i, rob in enumerate(self.train_env.robots):
+            for i,rob in enumerate(self.train_env.robots):
                 if rob.deactivated:
                     actions.append(None)
                     continue
 
                 if rob.cooperative:
                     if self.cooperative_agent.use_iqn:
-                        action, _, _ = self.cooperative_agent.act(states[i], eps)
+                        action,_,_ = self.cooperative_agent.act(states[i],eps)
                     else:
-                        action, _ = self.cooperative_agent.act_dqn(states[i], eps)
+                        action,_ = self.cooperative_agent.act_dqn(states[i],eps)
                 else:
                     if self.noncooperative_agent.use_iqn:
-                        action, _, _ = self.noncooperative_agent.act(states[i], eps)
+                        action,_,_ = self.noncooperative_agent.act(states[i],eps)
                     else:
-                        action, _ = self.noncooperative_agent.act_dqn(states[i], eps)
+                        action,_ = self.noncooperative_agent.act_dqn(states[i],eps)
                 actions.append(action)
             # end_1 = time.time()
             # elapsed_time_1 = end_1 - start_1
@@ -130,7 +128,7 @@ class Trainer():
             #     print("Elapsed time 2: {:.6f} seconds".format(elapsed_time_2))
 
             # save experience in replay memory
-            for i, rob in enumerate(self.train_env.robots):
+            for i,rob in enumerate(self.train_env.robots):
                 if rob.deactivated:
                     continue
 
@@ -141,20 +139,19 @@ class Trainer():
                 else:
                     ep_rewards[i] += self.noncooperative_agent.GAMMA ** ep_length * rewards[i]
                     if self.noncooperative_agent.training:
-                        self.noncooperative_agent.memory.add(
-                            (states[i], actions[i], rewards[i], next_states[i], dones[i]))
-
+                        self.noncooperative_agent.memory.add((states[i], actions[i], rewards[i], next_states[i], dones[i]))
+                
                 if rob.collision or rob.reach_goal:
                     rob.deactivated = True
                     ep_deactivated_t[i] = ep_length
 
             end_episode = (ep_length >= 1000) or self.train_env.check_all_deactivated()
-
-            # Learn, update and evaluate models after learning_starts time step
+            
+            # Learn, update and evaluate models after learning_starts time step 
             if self.current_timestep >= self.learning_starts:
                 # start_3 = time.time()
 
-                for agent in [self.cooperative_agent, self.noncooperative_agent]:
+                for agent in [self.cooperative_agent,self.noncooperative_agent]:
                     if agent is None:
                         continue
 
@@ -177,12 +174,11 @@ class Trainer():
                 #     print("Elapsed time 3: {:.6f} seconds".format(elapsed_time_3))
 
                 # Evaluate learning agents every eval_freq time steps
-                # if self.current_timestep == self.learning_starts or self.current_timestep % eval_freq == 0:
-                if self.current_timestep > self.learning_starts and self.current_timestep % eval_freq == 0:
+                if self.current_timestep == self.learning_starts or self.current_timestep % eval_freq == 0: 
                     self.evaluation()
                     self.save_evaluation(eval_log_path)
 
-                    for agent in [self.cooperative_agent, self.noncooperative_agent]:
+                    for agent in [self.cooperative_agent,self.noncooperative_agent]:
                         if agent is None:
                             continue
                         if not agent.training:
@@ -194,31 +190,30 @@ class Trainer():
 
             if end_episode:
                 ep_num += 1
-                pbar.update(1)
-
+                
                 if verbose:
                     # print abstract info of learning process
                     print("======== Episode Info ========")
-                    print("current ep_length: ", ep_length)
-                    print("current ep_num: ", ep_num)
-                    print("current exploration rate: ", eps)
-                    print("current timesteps: ", self.current_timestep)
-                    print("total timesteps: ", total_timesteps)
+                    print("current ep_length: ",ep_length)
+                    print("current ep_num: ",ep_num)
+                    print("current exploration rate: ",eps)
+                    print("current timesteps: ",self.current_timestep)
+                    print("total timesteps: ",total_timesteps)
                     print("======== Episode Info ========\n")
                     print("======== Robots Info ========")
-                    for i, rob in enumerate(self.train_env.robots):
+                    for i,rob in enumerate(self.train_env.robots):
                         info = infos[i]["state"]
                         if info == "deactivated after collision" or info == "deactivated after reaching goal":
                             print(f"Robot {i} ep reward: {ep_rewards[i]:.2f}, {info} at step {ep_deactivated_t[i]}")
                         else:
                             print(f"Robot {i} ep reward: {ep_rewards[i]:.2f}, {info}")
-                    print("======== Robots Info ========\n")
+                    print("======== Robots Info ========\n") 
 
-                states, _, _ = self.train_env.reset()
+                states,_,_ = self.train_env.reset()
                 # cvar = 1 - np.random.uniform(0.0, 1.0)
 
                 ep_rewards = np.zeros(len(self.train_env.robots))
-                ep_deactivated_t = [-1] * len(self.train_env.robots)
+                ep_deactivated_t = [-1]*len(self.train_env.robots)
                 ep_length = 0
             else:
                 states = next_states
@@ -228,12 +223,11 @@ class Trainer():
             # elapsed_time_all = end_all - start_all
             # if self.current_timestep % 100 == 0:
             #     print("one step elapsed time: {:.6f} seconds".format(elapsed_time_all))
-
+            
             self.current_timestep += 1
-        pbar.close()
 
-    def linear_eps(self, total_timesteps):
-
+    def linear_eps(self,total_timesteps):
+        
         progress = self.current_timestep / total_timesteps
         if progress < self.exploration_fraction:
             r = progress / self.exploration_fraction
@@ -256,49 +250,49 @@ class Trainer():
         energies_data = []
         obs_data = []
         objs_data = []
-
+        
         for idx, config in enumerate(self.eval_config):
-            # print(f"Evaluating episode {idx}")
-            state, _, _ = self.eval_env.reset_with_eval_config(config)
+            print(f"Evaluating episode {idx}")
+            state,_,_ = self.eval_env.reset_with_eval_config(config)
             obs = [[copy.deepcopy(rob.perception.observed_obs)] for rob in self.eval_env.robots]
             objs = [[copy.deepcopy(rob.perception.observed_objs)] for rob in self.eval_env.robots]
-
+            
             rob_num = len(self.eval_env.robots)
 
-            rewards = [0.0] * rob_num
-            times = [0.0] * rob_num
-            energies = [0.0] * rob_num
+            rewards = [0.0]*rob_num
+            times = [0.0]*rob_num
+            energies = [0.0]*rob_num
             end_episode = False
             length = 0
-
+            
             while not end_episode:
-                # gather actions for robots from agents
+                # gather actions for robots from agents 
                 action = []
-                for i, rob in enumerate(self.eval_env.robots):
+                for i,rob in enumerate(self.eval_env.robots):
                     if rob.deactivated:
                         action.append(None)
                         continue
 
                     if rob.cooperative:
                         if self.cooperative_agent.use_iqn:
-                            a, _, _ = self.cooperative_agent.act(state[i])
+                            a,_,_ = self.cooperative_agent.act(state[i])
                         else:
-                            a, _ = self.cooperative_agent.act_dqn(state[i])
+                            a,_ = self.cooperative_agent.act_dqn(state[i])
                     else:
                         if self.noncooperative_agent.use_iqn:
-                            a, _, _ = self.noncooperative_agent.act(state[i])
+                            a,_,_ = self.noncooperative_agent.act(state[i])
                         else:
-                            a, _ = self.noncooperative_agent.act_dqn(state[i])
+                            a,_ = self.noncooperative_agent.act_dqn(state[i])
 
                     action.append(a)
 
                 # execute actions in the training environment
                 state, reward, done, info = self.eval_env.step(action)
-
-                for i, rob in enumerate(self.eval_env.robots):
+                
+                for i,rob in enumerate(self.eval_env.robots):
                     if rob.deactivated:
                         continue
-
+                    
                     if rob.cooperative:
                         rewards[i] += self.cooperative_agent.GAMMA ** length * reward[i]
                     else:
@@ -311,8 +305,7 @@ class Trainer():
                     if rob.collision or rob.reach_goal:
                         rob.deactivated = True
 
-                end_episode = (
-                                          length >= 1000) or self.eval_env.check_any_collision() or self.eval_env.check_all_deactivated()
+                end_episode = (length >= 1000) or self.eval_env.check_any_collision() or self.eval_env.check_all_deactivated()
                 length += 1
 
             actions = []
@@ -331,9 +324,9 @@ class Trainer():
             energies_data.append(np.mean(energies))
             obs_data.append(obs)
             objs_data.append(objs)
-
+        
         avg_r = np.mean(rewards_data)
-        success_rate = np.sum(successes_data) / len(successes_data)
+        success_rate = np.sum(successes_data)/len(successes_data)
         idx = np.where(np.array(successes_data) == 1)[0]
         avg_t = None if np.shape(idx)[0] == 0 else np.mean(np.array(times_data)[idx])
         avg_e = None if np.shape(idx)[0] == 0 else np.mean(np.array(energies_data)[idx])
@@ -356,18 +349,18 @@ class Trainer():
         self.eval_obs.append(obs_data)
         self.eval_objs.append(objs_data)
 
-    def save_evaluation(self, eval_log_path):
+    def save_evaluation(self,eval_log_path):
         filename = "evaluations.npz"
-
+        
         np.savez(
-            os.path.join(eval_log_path, filename),
-            timesteps=np.array(self.eval_timesteps, dtype=object),
-            actions=np.array(self.eval_actions, dtype=object),
-            trajectories=np.array(self.eval_trajectories, dtype=object),
-            rewards=np.array(self.eval_rewards, dtype=object),
-            successes=np.array(self.eval_successes, dtype=object),
-            times=np.array(self.eval_times, dtype=object),
-            energies=np.array(self.eval_energies, dtype=object),
-            obs=np.array(self.eval_obs, dtype=object),
-            objs=np.array(self.eval_objs, dtype=object)
+            os.path.join(eval_log_path,filename),
+            timesteps=np.array(self.eval_timesteps,dtype=object),
+            actions=np.array(self.eval_actions,dtype=object),
+            trajectories=np.array(self.eval_trajectories,dtype=object),
+            rewards=np.array(self.eval_rewards,dtype=object),
+            successes=np.array(self.eval_successes,dtype=object),
+            times=np.array(self.eval_times,dtype=object),
+            energies=np.array(self.eval_energies,dtype=object),
+            obs=np.array(self.eval_obs,dtype=object),
+            objs=np.array(self.eval_objs,dtype=object)
         )

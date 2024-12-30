@@ -70,7 +70,7 @@ class MarineNavEnv2(gym.Env):
     def get_action_space_dimension(self):
         return self.robot.compute_actions_dimension()
 
-    def reset(self):
+    def reset(self, verbose=False):
         # reset the environment
 
         if self.schedule is not None:
@@ -86,13 +86,14 @@ class MarineNavEnv2(gym.Env):
             self.num_obs = self.schedule["num_obstacles"][idx]
             self.min_start_goal_dis = self.schedule["min_start_goal_dis"][idx]
 
-            print("\n======== training schedule ========")
-            print("num of cooperative agents: ",self.num_cooperative)
-            print("num of non-cooperative agents: ",self.num_non_cooperative)
-            print("num of cores: ",self.num_cores)
-            print("num of obstacles: ",self.num_obs)
-            print("min start goal dis: ",self.min_start_goal_dis)
-            print("======== training schedule ========\n") 
+            if(verbose):
+                print("\n======== training schedule ========")
+                print("num of cooperative agents: ",self.num_cooperative)
+                print("num of non-cooperative agents: ",self.num_non_cooperative)
+                print("num of cores: ",self.num_cores)
+                print("num of obstacles: ",self.num_obs)
+                print("min start goal dis: ",self.min_start_goal_dis)
+                print("======== training schedule ========\n")
         
         self.episode_timesteps = 0
 
