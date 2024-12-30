@@ -6,3 +6,4 @@ __pycache__
 marine_env/marine_env.egg-info/
 *.png
 *.mp4
+*.log

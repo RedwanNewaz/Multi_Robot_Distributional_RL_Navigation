@@ -1,0 +1,5 @@
+name: "RVO"
+cooperative: true
+type: "cooperative"
+use_iqn: false
+use_rl: false

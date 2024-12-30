@@ -2,7 +2,7 @@
     "seed":[9],
     "total_timesteps":6000000,
     "eval_freq":60000,
-    "save_dir":"/home/rfal/Multi_Robot_Distributional_RL_Navigation/training_data",
+    "save_dir":"/home/airlab/PycharmProjects/Multi_Robot_Distributional_RL_Navigation/training_data",
     "training_schedule":
     {
         "timesteps":[0,1000000,2000000,3000000,4000000,5000000],

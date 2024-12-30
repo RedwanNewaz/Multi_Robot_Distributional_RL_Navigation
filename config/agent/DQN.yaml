@@ -1,0 +1,6 @@
+name: "DQN"
+save_dir: "pretrained_models/DQN/seed_9"
+cooperative: true
+type: "cooperative"
+use_iqn: false
+use_rl: true

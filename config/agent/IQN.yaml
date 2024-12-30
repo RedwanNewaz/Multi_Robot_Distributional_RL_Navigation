@@ -1,0 +1,6 @@
+name: "IQN"
+save_dir: "pretrained_models/IQN/seed_9"
+cooperative: true
+type: "cooperative"
+use_iqn: true
+use_rl: true

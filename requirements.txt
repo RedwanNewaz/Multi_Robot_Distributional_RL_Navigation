@@ -1,0 +1,6 @@
+torch
+gym
+scipy
+matplotlib
+hydra-core
+tqdm

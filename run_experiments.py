@@ -2,13 +2,12 @@ import marinenav_env.envs.marinenav_env as marinenav_env
 from policy.agent import Agent
 import numpy as np
 import copy
-import scipy.spatial
 import json
 from datetime import datetime
 import time as t_module
 import os
 import matplotlib.pyplot as plt
-import APF
+from thirdparty import APF
 import sys
 sys.path.insert(0,"./thirdparty")
 import RVO
@@ -346,7 +345,7 @@ if __name__ == "__main__":
     ##### APF #####
     test_env_3 = marinenav_env.MarineNavEnv2(seed)
 
-    APF_agent = APF.APF_agent(test_env_3.robots[0].a,test_env_3.robots[0].w)
+    APF_agent = APF.APF_agent(test_env_3.robots[0].a, test_env_3.robots[0].w)
     ##### APF #####
 
     ##### RVO #####
