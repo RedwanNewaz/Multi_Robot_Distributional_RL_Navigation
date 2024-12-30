@@ -1,0 +1,13 @@
+device: "cuda"
+seed: 10
+num_procs: 8
+
+# algorithmic components
+defaults:
+  - exp: marine_env_training
+  - agent: IQN
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .

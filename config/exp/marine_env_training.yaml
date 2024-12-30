@@ -1,6 +1,18 @@
-num_episodes: [100,100,100,100,100]
-num_cooperative: [3,4,5,6,7]
-num_non_cooperative: [0,0,0,0,0]
-num_cores: [4,5,6,7,8]
-num_obstacles: [4,5,6,7,8]
-min_start_goal_dis: [40.0,40.0,40.0,40.0,40.0]
+total_timesteps: 6000000
+eval_freq: 60000
+
+train:
+  timesteps: [0,1000000,2000000,3000000,4000000,5000000]
+  num_cooperative: [3,5,7,7,7,7]
+  num_non_cooperative: [0,0,0,0,0,0]
+  num_cores: [4,6,8,8,8,8]
+  num_obstacles: [0,0,0,6,8,10]
+  min_start_goal_dis: [30.0,35.0,40.0,40.0,40.0,40.0]
+
+eval:
+  num_episodes: [ 100,100,100,100,100 ]
+  num_cooperative: [ 3,4,5,6,7 ]
+  num_non_cooperative: [ 0,0,0,0,0 ]
+  num_cores: [ 4,5,6,7,8 ]
+  num_obstacles: [ 4,5,6,7,8 ]
+  min_start_goal_dis: [ 40.0,40.0,40.0,40.0,40.0 ]

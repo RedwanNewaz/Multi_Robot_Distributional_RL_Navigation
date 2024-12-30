@@ -1,5 +1,5 @@
 name: "IQN"
-save_dir: "pretrained_models/IQN/seed_9"
+save_dir: "pretrained_models/IQN/seed_10"
 cooperative: true
 type: "cooperative"
 use_iqn: true
