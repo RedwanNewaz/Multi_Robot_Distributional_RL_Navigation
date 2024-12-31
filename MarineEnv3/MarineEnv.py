@@ -6,6 +6,8 @@ import json
 import copy
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.cm as cm
+import matplotlib as mpl
 from dataclasses import dataclass
 
 
@@ -371,6 +373,8 @@ class MarineEnv(gym.Env):
             ax.add_patch(circle)
             ax.text(core.x, core.y, 'CW' if core.clockwise else 'CCW', fontsize=8, ha='center')
 
+        self.generate_background_image(ax)
+
         # Draw obstacles
         for obs in self.obstacles:
             circle = patches.Circle((obs.x, obs.y), obs.r, color='red', alpha=0.5)
@@ -383,5 +387,32 @@ class MarineEnv(gym.Env):
             ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')
 
         ax.set_aspect('equal', 'box')
-        plt.grid(True)
+        # plt.grid(True)
+        plt.tight_layout()
         plt.show()
+
+    def generate_background_image(self, axis):
+        # plot current velocity in the map
+        x_pos = list(np.linspace(0.0, self.width, 100))
+        y_pos = list(np.linspace(0.0, self.height, 100))
+
+        pos_x = []
+        pos_y = []
+        arrow_x = []
+        arrow_y = []
+        speeds = np.zeros((len(x_pos), len(y_pos)))
+        for m, x in enumerate(x_pos):
+            for n, y in enumerate(y_pos):
+                v = self.get_velocity(x, y)
+                speed = np.clip(np.linalg.norm(v), 0.1, 10)
+                pos_x.append(x)
+                pos_y.append(y)
+                arrow_x.append(v[0])
+                arrow_y.append(v[1])
+                speeds[n, m] = np.log(speed)
+
+        cmap = cm.Blues(np.linspace(0, 1, 20))
+        cmap = mpl.colors.ListedColormap(cmap[10:, :-1])
+
+        axis.contourf(x_pos, y_pos, speeds, cmap=cmap)
+        axis.quiver(pos_x, pos_y, arrow_x, arrow_y, width=0.001, scale_units='xy', scale=2.0)
