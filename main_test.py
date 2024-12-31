@@ -11,22 +11,6 @@ sys.path.insert(0,"./thirdparty")
 import RVO
 from thirdparty import APF
 from random import choice
-
-def run_experimentV2(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: dict):
-    envs = [env]
-    idx = choice(range(len(schedules["num_cooperative"])))
-    observations = exp_setup(envs, schedules, idx)
-    obs = observations[0]
-    (success, rewards, computation_times, success_times,
-     success_energies, trajectories) = evaluation(obs, agent, env, use_iqn=cfg.agent.use_iqn,
-                                                  use_rl=cfg.agent.use_rl, save_episode=True)
-
-    print("Agent: ", cfg.agent.name)
-    print("Computation Time: ", np.sum(computation_times) * 1000, "ms")
-    print("Success Rate: ", success)
-    print("Average Reward: ", np.mean(rewards))
-    print("trajectory: ", len(trajectories))
-
 def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, eval_schedule: dict):
     idx = choice(range(len(eval_schedule["num_cooperative"])))
     env.num_cooperative = eval_schedule["num_cooperative"][idx]
@@ -45,7 +29,14 @@ def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, eval_schedul
                 action.append(None)
                 continue
             assert rob.cooperative, "Every robot must be cooperative!"
-            a, _, _ = agent.act(state[i])
+            # a, _, _ = agent.act(state[i])
+            if cfg.agent.use_rl:
+                if cfg.agent.use_iqn:
+                    a,_,_ = agent.act(state[i])
+                else:
+                    a,_ = agent.act_dqn(state[i])
+            else:
+                a = agent.act(state[i])
             action.append(a)
         # execute actions in the training environment
 
@@ -76,7 +67,7 @@ def my_app(cfg : DictConfig) -> None:
     elif cfg.agent.name == "APF":
         agent = APF.APF_agent(env.robots[0].a, env.robots[0].w)
     elif cfg.agent.name == "RVO":
-        agent = RVO.RVO_agent(env.robots[0].a,env.robots[0].w, env.robots[0].max_speed)
+        agent = RVO.RVO_agent(env.robots[0].a,env.robots[0].w, env.robots[0].config.max_speed)
     else:
         raise NotImplementedError("The agent is not implemented")
 

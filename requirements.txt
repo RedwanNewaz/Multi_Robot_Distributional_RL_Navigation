@@ -4,3 +4,4 @@ scipy
 matplotlib
 hydra-core
 tqdm
+git+https://github.com/Replicable-MARL/MARLlib.git
