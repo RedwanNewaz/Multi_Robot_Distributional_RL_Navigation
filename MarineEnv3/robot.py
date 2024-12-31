@@ -67,7 +67,7 @@ class Robot:
         self.a = np.array([-0.4, 0.0, 0.4])
         self.w = np.array([-np.pi / 6, 0.0, np.pi / 6])
         self.k = np.max(self.a) / self.config.max_speed
-        self.actions = self._compute_actions()
+        self.actions = self.compute_actions()
 
         # State variables
         self.x: Optional[float] = None
@@ -87,8 +87,11 @@ class Robot:
         self.action_history: List = []
         self.trajectory: List = []
 
-    def _compute_actions(self) -> List[Tuple[float, float]]:
+    def compute_actions(self) -> List[Tuple[float, float]]:
         return [(acc, ang_v) for acc in self.a for ang_v in self.w]
+
+    def compute_k(self) -> None:
+        self.k = np.max(self.a) / self.config.max_speed
 
     @property
     def actions_dimension(self) -> int:

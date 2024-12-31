@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 import matplotlib.cm as cm
 import matplotlib as mpl
 from dataclasses import dataclass
+from copy import deepcopy
 
 
 @dataclass
@@ -206,10 +207,9 @@ class MarineEnv(gym.Env):
     def step(self, actions):
         rewards = [0] * len(self.robots)
         assert len(actions) == len(self.robots), "Number of actions not equal to number of robots!"
+        assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
 
-        #FIXME implement this check
-        # assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
-
+        prev_robots = deepcopy(self.robots)
         for i, action in enumerate(actions):
             rob = self.robots[i]
             if rob.deactivated:
@@ -222,6 +222,11 @@ class MarineEnv(gym.Env):
             dis_after = rob.dist_to_goal()
             rewards[i] += self.timestep_penalty + (dis_before - dis_after)
 
+        # revert back robot position if it goes out of boundary
+        for i, outside in enumerate(self.out_of_boundary()):
+            if outside:
+                self.robots[i] = prev_robots[i]
+
         observations, collisions, reach_goals = self.get_observations()
         dones, infos = self.check_end_conditions(collisions, reach_goals)
 
@@ -229,6 +234,9 @@ class MarineEnv(gym.Env):
         self.total_timesteps += 1
 
         return observations, rewards, dones, infos
+
+    def check_all_reach_goal(self):
+        return all([rob.check_reach_goal() for rob in self.robots])
 
     def check_end_conditions(self, collisions, reach_goals):
         dones = [False] * len(self.robots)
@@ -253,7 +261,7 @@ class MarineEnv(gym.Env):
         return dones, infos
 
     def out_of_boundary(self):
-        return not (0.0 <= self.robot.x <= self.width and 0.0 <= self.robot.y <= self.height)
+        return [not (rob.r <= rob.x <= self.width - rob.r and rob.r <= rob.y <= self.height - rob.r) for rob in self.robots]
 
     def reset_with_eval_config(self, eval_config):
         self.episode_timesteps = 0
@@ -334,21 +342,21 @@ class MarineEnv(gym.Env):
             },
             "robots": {
                 "cooperative": [rob.cooperative for rob in self.robots],
-                "dt": [rob.dt for rob in self.robots],
-                "N": [rob.N for rob in self.robots],
-                "length": [rob.length for rob in self.robots],
-                "width": [rob.width for rob in self.robots],
+                "dt": [rob.config.dt for rob in self.robots],
+                "N": [rob.config.N for rob in self.robots],
+                "length": [rob.config.length for rob in self.robots],
+                "width": [rob.config.width for rob in self.robots],
                 "r": [rob.r for rob in self.robots],
                 "detect_r": [rob.detect_r for rob in self.robots],
-                "goal_dis": [rob.goal_dis for rob in self.robots],
-                "obs_dis": [rob.obs_dis for rob in self.robots],
-                "max_speed": [rob.max_speed for rob in self.robots],
+                "goal_dis": [rob.config.goal_dis for rob in self.robots],
+                "obs_dis": [rob.config.obs_dis for rob in self.robots],
+                "max_speed": [rob.config.max_speed for rob in self.robots],
                 "a": [list(rob.a) for rob in self.robots],
                 "w": [list(rob.w) for rob in self.robots],
                 "start": [list(rob.start) for rob in self.robots],
                 "goal": [list(rob.goal) for rob in self.robots],
-                "init_theta": [rob.init_theta for rob in self.robots],
-                "init_speed": [rob.init_speed for rob in self.robots],
+                "init_theta": [rob.config.init_theta for rob in self.robots],
+                "init_speed": [rob.config.init_speed for rob in self.robots],
                 "perception": {
                     "range": [rob.perception.range for rob in self.robots],
                     "angle": [rob.perception.angle for rob in self.robots]
