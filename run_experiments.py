@@ -63,8 +63,10 @@ def evaluation(state, agent, eval_env, use_rl=True, use_iqn=True, act_adaptive=T
             assert rob.cooperative, "Every robot must be cooperative!"
             
             rewards[i] += agent.GAMMA ** length * reward[i]
-
-            times[i] += rob.dt * rob.N
+            try:
+                times[i] += rob.config.dt * rob.config.N
+            except:
+                times[i] += rob.dt * rob.N
             energies[i] += rob.compute_action_energy_cost(action[i])
 
             if rob.collision or rob.reach_goal:

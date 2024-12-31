@@ -4,7 +4,10 @@ import marinenav_env.envs.utils.robot as robot
 import gym
 import json
 import copy
-
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import matplotlib.cm as cm
+import matplotlib as mpl
 class Core:
 
     def __init__(self, x:float, y:float, clockwise:bool, Gamma:float):
@@ -23,7 +26,7 @@ class Obstacle:
         self.r = r # radius of the obstacle    
 
 class MarineNavEnv2(gym.Env):
-
+    init_display = False
     def __init__(self, seed:int=0, schedule:dict=None):
 
         self.sd = seed
@@ -636,3 +639,66 @@ class MarineNavEnv2(gym.Env):
         episode = self.episode_data()
         with open(filename,"w") as file:
             json.dump(episode,file)
+
+    def render(self, mode='human'):
+        if not self.init_display:
+            self.initialize_env()
+            self.init_display = True
+        else:
+            for i, rob in enumerate(self.robots):
+                self.robot_plots[i].center = (rob.x, rob.y)
+        plt.draw()
+        plt.pause(0.1)
+
+    def initialize_env(self):
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Draw the environment boundary
+        ax.set_xlim(0, self.width)
+        ax.set_ylim(0, self.height)
+
+        # Draw vortex cores
+        self.generate_background_image(ax)
+
+        # Draw obstacles
+        for obs in self.obstacles:
+            circle = patches.Circle((obs.x, obs.y), obs.r, color='red', alpha=0.5)
+            ax.add_patch(circle)
+
+        # Draw robots
+        self.robot_plots = []
+        for rob in self.robots:
+            circle = patches.Circle((rob.x, rob.y), rob.r, color='green' if rob.cooperative else 'orange', alpha=0.5)
+            ax.add_patch(circle)
+            self.robot_plots.append(circle)
+            ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')
+
+        ax.set_aspect('equal', 'box')
+        plt.tight_layout()
+
+
+    def generate_background_image(self, axis):
+        # plot current velocity in the map
+        x_pos = list(np.linspace(0.0, self.width, 100))
+        y_pos = list(np.linspace(0.0, self.height, 100))
+
+        pos_x = []
+        pos_y = []
+        arrow_x = []
+        arrow_y = []
+        speeds = np.zeros((len(x_pos), len(y_pos)))
+        for m, x in enumerate(x_pos):
+            for n, y in enumerate(y_pos):
+                v = self.get_velocity(x, y)
+                speed = np.clip(np.linalg.norm(v), 0.1, 10)
+                pos_x.append(x)
+                pos_y.append(y)
+                arrow_x.append(v[0])
+                arrow_y.append(v[1])
+                speeds[n, m] = np.log(speed)
+
+        cmap = cm.Blues(np.linspace(0, 1, 20))
+        cmap = mpl.colors.ListedColormap(cmap[10:, :-1])
+
+        axis.contourf(x_pos, y_pos, speeds, cmap=cmap)
+        axis.quiver(pos_x, pos_y, arrow_x, arrow_y, width=0.001, scale_units='xy', scale=2.0)

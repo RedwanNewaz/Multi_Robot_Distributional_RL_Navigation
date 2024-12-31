@@ -1,6 +1,7 @@
 import hydra
 from omegaconf import DictConfig
 import marinenav_env.envs.marinenav_env as marinenav_env
+from MarineEnv3 import MarineEnv
 from policy.agent import Agent
 from run_experiments import evaluation, exp_setup
 import numpy as np
@@ -11,7 +12,7 @@ import RVO
 from thirdparty import APF
 from random import choice
 
-def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: dict):
+def run_experimentV2(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: dict):
     envs = [env]
     idx = choice(range(len(schedules["num_cooperative"])))
     observations = exp_setup(envs, schedules, idx)
@@ -25,11 +26,47 @@ def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: d
     print("Success Rate: ", success)
     print("Average Reward: ", np.mean(rewards))
     print("trajectory: ", len(trajectories))
-    # pprint(trajectories)
+
+def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: dict):
+    envs = [env]
+    idx = choice(range(len(schedules["num_cooperative"])))
+    observations = exp_setup(envs, schedules, idx)
+    state = observations[0]
+
+    end_episode = False
+    length = 0
+    rewards = [0.0] * len(env.robots)
+    while not end_episode:
+        action = []
+        for i, rob in enumerate(env.robots):
+            if rob.deactivated:
+                action.append(None)
+                continue
+            assert rob.cooperative, "Every robot must be cooperative!"
+            a, _, _ = agent.act(state[i])
+            action.append(a)
+        # execute actions in the training environment
+
+        state, reward, done, info = env.step(action)
+        env.render()
+        for i,rob in enumerate(env.robots):
+            if rob.deactivated:
+                continue
+            rewards[i] += agent.GAMMA ** length * reward[i]
+            if rob.collision or rob.reach_goal:
+                rob.deactivated = True
+
+        end_episode = (length >= 360) or env.check_all_deactivated()
+
+        length += 1
+
+    success = env.check_all_reach_goal()
+    print(f"[{cfg.agent.name}]: success = {success} | average reward = {np.average(rewards):.3f}")
 @hydra.main(version_base=None, config_path="config", config_name="main")
 def my_app(cfg : DictConfig) -> None:
     # print(OmegaConf.to_yaml(cfg))
-    env = marinenav_env.MarineNavEnv2(cfg.seed)
+    # env = marinenav_env.MarineNavEnv2(cfg.seed)
+    env = MarineEnv(cfg.seed)
     agent = None
     if cfg.agent.use_rl:
         agent = Agent(cooperative=True, device=cfg.device, use_iqn=cfg.agent.use_iqn)
