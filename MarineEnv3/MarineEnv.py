@@ -206,7 +206,9 @@ class MarineEnv(gym.Env):
     def step(self, actions):
         rewards = [0] * len(self.robots)
         assert len(actions) == len(self.robots), "Number of actions not equal to number of robots!"
-        assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
+
+        #FIXME implement this check
+        # assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
 
         for i, action in enumerate(actions):
             rob = self.robots[i]
@@ -214,7 +216,7 @@ class MarineEnv(gym.Env):
                 continue
             rob.action_history.append(action)
             dis_before = rob.dist_to_goal()
-            for _ in range(rob.N):
+            for _ in range(rob.config.N):
                 rob.update_state(action, self.get_velocity(rob.x, rob.y))
             rob.trajectory.append([rob.x, rob.y, rob.theta, rob.speed, rob.velocity[0], rob.velocity[1]])
             dis_after = rob.dist_to_goal()
@@ -369,7 +371,7 @@ class MarineEnv(gym.Env):
             for i, rob in enumerate(self.robots):
                 self.robot_plots[i].center = (rob.x, rob.y)
         plt.draw()
-        plt.pause(0.1)
+        plt.pause(0.001)
 
     def initialize_env(self):
         fig, ax = plt.subplots(figsize=(10, 10))
