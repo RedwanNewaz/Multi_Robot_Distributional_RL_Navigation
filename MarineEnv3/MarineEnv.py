@@ -132,7 +132,7 @@ class MarineEnv(gym.Env):
         rob.collision = False
         rob.deactivated = False
         rob.init_theta = self.rd.uniform(0, 2 * np.pi)
-        rob.init_speed = self.rd.uniform(0, rob.max_speed)
+        rob.init_speed = self.rd.uniform(0, rob.config.max_speed)
         rob.reset_state(current_velocity=self.get_velocity(rob.start[0], rob.start[1]))
 
     def check_start_and_goal(self, start, goal):
