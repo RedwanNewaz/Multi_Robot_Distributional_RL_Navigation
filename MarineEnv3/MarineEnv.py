@@ -28,6 +28,7 @@ class Obstacle:
 
 
 class MarineEnv(gym.Env):
+    init_display = False
     def __init__(self, seed: int = 0, schedule: dict = None):
         self.sd = seed
         self.rd = np.random.RandomState(seed)
@@ -361,6 +362,16 @@ class MarineEnv(gym.Env):
             json.dump(self.episode_data(), file)
 
     def render(self, mode='human'):
+        if not self.init_display:
+            self.initialize_env()
+            self.init_display = True
+        else:
+            for i, rob in enumerate(self.robots):
+                self.robot_plots[i].center = (rob.x, rob.y)
+        plt.draw()
+        plt.pause(0.1)
+
+    def initialize_env(self):
         fig, ax = plt.subplots(figsize=(10, 10))
 
         # Draw the environment boundary
@@ -368,11 +379,6 @@ class MarineEnv(gym.Env):
         ax.set_ylim(0, self.height)
 
         # Draw vortex cores
-        for core in self.cores:
-            circle = patches.Circle((core.x, core.y), self.r, color='blue', alpha=0.5)
-            ax.add_patch(circle)
-            ax.text(core.x, core.y, 'CW' if core.clockwise else 'CCW', fontsize=8, ha='center')
-
         self.generate_background_image(ax)
 
         # Draw obstacles
@@ -381,15 +387,16 @@ class MarineEnv(gym.Env):
             ax.add_patch(circle)
 
         # Draw robots
+        self.robot_plots = []
         for rob in self.robots:
             circle = patches.Circle((rob.x, rob.y), rob.r, color='green' if rob.cooperative else 'orange', alpha=0.5)
             ax.add_patch(circle)
+            self.robot_plots.append(circle)
             ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')
 
         ax.set_aspect('equal', 'box')
-        # plt.grid(True)
         plt.tight_layout()
-        plt.show()
+
 
     def generate_background_image(self, axis):
         # plot current velocity in the map
