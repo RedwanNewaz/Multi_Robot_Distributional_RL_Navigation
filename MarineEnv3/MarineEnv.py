@@ -411,7 +411,8 @@ class MarineEnv(gym.Env):
         # Draw robots
         self.robot_plots = []
         for rob in self.robots:
-            circle = patches.Circle((rob.x, rob.y), rob.r, color='yellow' if rob.cooperative else 'orange', alpha=0.5)
+            color = 'blue' if rob.collision else 'yellow' if rob.cooperative else 'orange'
+            circle = patches.Circle((rob.x, rob.y), rob.r, color=color, alpha=0.5)
             ax.add_patch(circle)
             self.robot_plots.append(circle)
             ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')

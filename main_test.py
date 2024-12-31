@@ -27,12 +27,14 @@ def run_experimentV2(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules:
     print("Average Reward: ", np.mean(rewards))
     print("trajectory: ", len(trajectories))
 
-def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, schedules: dict):
-    envs = [env]
-    idx = choice(range(len(schedules["num_cooperative"])))
-    observations = exp_setup(envs, schedules, idx)
-    state = observations[0]
-
+def run_experiment(cfg:DictConfig, env:marinenav_env, agent: Agent, eval_schedule: dict):
+    idx = choice(range(len(eval_schedule["num_cooperative"])))
+    env.num_cooperative = eval_schedule["num_cooperative"][idx]
+    env.num_non_cooperative = eval_schedule["num_non_cooperative"][idx]
+    env.num_cores = eval_schedule["num_cores"][idx]
+    env.num_obs = eval_schedule["num_obstacles"][idx]
+    env.min_start_goal_dis = eval_schedule["min_start_goal_dis"][idx]
+    state,_,_ = env.reset()
     end_episode = False
     length = 0
     rewards = [0.0] * len(env.robots)
