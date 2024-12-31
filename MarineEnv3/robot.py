@@ -114,8 +114,9 @@ class Robot:
     def dist_to_goal(self) -> float:
         return np.linalg.norm(self.goal - np.array([self.x, self.y]))
 
-    def check_reach_goal(self) -> None:
+    def check_reach_goal(self) -> bool:
         self.reach_goal = self.dist_to_goal() <= self.config.goal_dist
+        return self.reach_goal
 
     def reset_state(self, current_velocity: np.ndarray = np.zeros(2)) -> None:
         self.action_history.clear()

@@ -209,7 +209,7 @@ class MarineEnv(gym.Env):
         assert len(actions) == len(self.robots), "Number of actions not equal to number of robots!"
         assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
 
-        prev_robots = deepcopy(self.robots)
+        # prev_robots = deepcopy(self.robots)
         for i, action in enumerate(actions):
             rob = self.robots[i]
             if rob.deactivated:
@@ -223,12 +223,21 @@ class MarineEnv(gym.Env):
             rewards[i] += self.timestep_penalty + (dis_before - dis_after)
 
         # revert back robot position if it goes out of boundary
-        for i, outside in enumerate(self.out_of_boundary()):
-            if outside:
-                self.robots[i] = prev_robots[i]
+        # for i, outside in enumerate(self.out_of_boundary()):
+        #     if outside:
+        #         self.robots[i] = prev_robots[i]
 
         observations, collisions, reach_goals = self.get_observations()
         dones, infos = self.check_end_conditions(collisions, reach_goals)
+
+        # update reward
+        for idx, rob in enumerate(self.robots):
+            if rob.deactivated:
+                continue
+            if rob.collision:
+                rewards[idx] += self.collision_penalty
+            elif rob.reach_goal:
+                rewards[idx] += self.goal_reward
 
         self.episode_timesteps += 1
         self.total_timesteps += 1
@@ -238,6 +247,8 @@ class MarineEnv(gym.Env):
     def check_all_reach_goal(self):
         return all([rob.check_reach_goal() for rob in self.robots])
 
+    def check_all_deactivated(self):
+        return all([rob.deactivated for rob in self.robots])
     def check_end_conditions(self, collisions, reach_goals):
         dones = [False] * len(self.robots)
         infos = [{"state": "normal"}] * len(self.robots)
@@ -262,6 +273,7 @@ class MarineEnv(gym.Env):
 
     def out_of_boundary(self):
         return [not (rob.r <= rob.x <= self.width - rob.r and rob.r <= rob.y <= self.height - rob.r) for rob in self.robots]
+
 
     def reset_with_eval_config(self, eval_config):
         self.episode_timesteps = 0
@@ -399,7 +411,7 @@ class MarineEnv(gym.Env):
         # Draw robots
         self.robot_plots = []
         for rob in self.robots:
-            circle = patches.Circle((rob.x, rob.y), rob.r, color='green' if rob.cooperative else 'orange', alpha=0.5)
+            circle = patches.Circle((rob.x, rob.y), rob.r, color='yellow' if rob.cooperative else 'orange', alpha=0.5)
             ax.add_patch(circle)
             self.robot_plots.append(circle)
             ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')
