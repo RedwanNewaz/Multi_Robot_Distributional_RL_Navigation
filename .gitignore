@@ -8,3 +8,4 @@ marine_env/marine_env.egg-info/
 *.mp4
 *.log
 .idea
+MARLib
