@@ -18,15 +18,5 @@ if __name__ == '__main__':
     # customize model
     model = marl.build_model(env, mappo, {"core_arch": "mlp", "encode_layer": "128-128"})
 
-    # start learning
-    # mappo.fit(env, model, stop={'episode_reward_mean': 2000, 'timesteps_total': 10000000},
-    #           local_mode=True, num_gpus=1, num_workers=2, share_policy='all', checkpoint_freq=50)
-
-    # mappo.fit(env, model, stop={'episode_reward_mean': 2000, 'timesteps_total': 10000000},
-    #           local_mode=False, num_gpus=1, num_workers=2, share_policy='all', checkpoint_freq=50)
-
-    # mappo.fit(env, model, stop={'episode_reward_mean': 2000, 'timesteps_total': 10000000},
-    #           local_mode=False, num_gpus=0, num_workers=0, share_policy='all', checkpoint_freq=50)
-
-    mappo.fit(env, model, local_mode=False, stop={'timesteps_total': 10000}, checkpoint_freq=10)
+    mappo.fit(env, model, local_mode=False, stop={'timesteps_total': 6000000}, checkpoint_freq=10)
 
