@@ -87,7 +87,7 @@ class MarineEnv(gym.Env):
         self.min_start_goal_dis = self.schedule["min_start_goal_dis"][idx]
 
     def generate_robots(self):
-        print("Generating robots... ", self.num_cooperative, self.num_non_cooperative)
+        # print("Generating robots... ", self.num_cooperative, self.num_non_cooperative)
         robot_types = [True] * self.num_cooperative + [False] * self.num_non_cooperative
         for _ in range(500):
             if not robot_types:

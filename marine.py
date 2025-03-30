@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict, Any
 import numpy as np
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 from gym.spaces import Dict as GymDict, Box
@@ -26,108 +26,133 @@ policy_mapping_dict = {
 
 
 class MarineNavEnv(MultiAgentEnv):
-    def __init__(self, env_config):
-        map_name = env_config.get("map_name")
-        self.max_timesteps = env_config.get("max_timesteps")
+    def __init__(self, env_config: Dict[str, Any]):
+        super().__init__()
+
+        # Initialize with defaults
+        self.map_name = env_config.get("map_name", "MarineNav")
+        self.max_timesteps = env_config.get("max_timesteps", 1000)
+
+        # Initialize underlying environment
         env_config.pop("map_name", None)
         env_config.pop("max_timesteps", None)
-
-        if map_name not in REGISTRY:
-            raise ValueError(f"Unknown map name: {map_name}")
-
-        self.env = REGISTRY[map_name](**env_config)
-        self.env.reset()
+        self.env = REGISTRY[self.map_name](**env_config)
         self.env.max_timesteps = self.max_timesteps
 
-        n = self.env.get_action_space_dimension()
-        self.action_space = gym.spaces.Discrete(n)
-        self.num_agents = self.env.num_cooperative  # Use the number from MarineEnv
-        print(f"Number of agents: {self.num_agents}")
-        # Define observation space
-        self.observation_space = GymDict({
-            "obs": Box(low=-100.0, high=100.0, shape=(39,), dtype=np.float64),
-            "state": Box(low=-100.0, high=100.0, shape=(39,), dtype=np.float64)
+        # Initialize spaces
+        self.action_space = gym.spaces.Discrete(self.env.get_action_space_dimension())
+        self.observation_space = self._get_observation_space()
+
+        # Initialize agents
+        self._initialize_agents()
+
+        env_config["map_name"] = self.map_name
+        self.env_config = env_config
+
+        # Episode tracking
+        self.current_episode = 0
+        self.current_step = 0
+        self._last_obs = None
+        self._eps_id = None
+
+    def _initialize_agents(self):
+        """Initialize agent tracking structures."""
+        self.num_cooperative = self.env.num_cooperative
+        self.agents = [f"agent_{i + 1}" for i in range(self.num_cooperative)]
+        self._agent_ids = set(self.agents)
+
+    def _get_observation_space(self):
+        """Determine observation space from a test reset."""
+        test_obs = self.env.reset()[0]
+        obs_shape = (len(test_obs[0]),) if test_obs and len(test_obs[0]) == 39 else (39,)
+        return GymDict({
+            "obs": Box(low=-100.0, high=100.0, shape=obs_shape, dtype=np.float64),
+            "state": Box(low=-100.0, high=100.0, shape=obs_shape, dtype=np.float64)
         })
 
-
-
-        env_config["map_name"] = map_name
-        self.env_config = env_config
-        self.agents = [f"agent_{i + 1}" for i in range(self.num_agents)]  # e.g., ["agent_1", "agent_2", ...]
-        self.action_dict = {f"agent_{i + 1}": 0 for i in range(self.num_agents)}
-
-
-
     def reset(self) -> MultiAgentDict:
-        observations, collisions, reach_goals = self.env.reset()
+        """Reset with strict episode boundary enforcement."""
+        self.current_episode += 1
+        self.current_step = 0
+        self._eps_id = self.current_episode  # Unique ID for this episode
+
+        # Reset underlying environment
+        observations, _, _ = self.env.reset()
+
+        # Reinitialize agents in case count changed
+        self._initialize_agents()
+
+        # Build observation dict
         obs_dict = {}
         for i, agent in enumerate(self.agents):
-            agent_obs = np.array(observations[i], dtype=np.float64)
-            if agent_obs.shape != (39,):
-                raise ValueError(f"Agent {agent} observation has shape {agent_obs.shape}, expected (39,)")
+            agent_obs = self._process_observation(observations[i])
             obs_dict[agent] = {
                 "obs": agent_obs,
-                "state": agent_obs  # State is the same as obs for centralized critic
+                "state": agent_obs.copy()
             }
+
+        self._last_obs = obs_dict
         return obs_dict
+
+    def _process_observation(self, obs):
+        """Ensure observation has consistent shape."""
+        obs_array = np.asarray(obs, dtype=np.float64).flatten()
+        if len(obs_array) != self.observation_space["obs"].shape[0]:
+            # Pad or truncate if necessary
+            expected_len = self.observation_space["obs"].shape[0]
+            if len(obs_array) > expected_len:
+                obs_array = obs_array[:expected_len]
+            else:
+                obs_array = np.pad(obs_array, (0, expected_len - len(obs_array)))
+        return obs_array
 
     def step(self, action_dict: MultiAgentDict) -> Tuple[
         MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict]:
+        """Step with trajectory boundary enforcement."""
+        self.current_step += 1
 
-        # for key, val in action_dict.items():
-        #     self.action_dict[key] = val
-        for agent in self.action_dict:
-            if agent in action_dict:
-                self.action_dict[agent] = action_dict[agent]
-            else:
-                self.action_dict[agent] = 0
+        # Convert actions to list format
+        actions = [action_dict.get(agent, 0) for agent in self.agents]
 
-        raw_obs, rewards, done, info = self.env.step(self.action_dict)
+        # Execute step
+        observations, rewards, dones, infos = self.env.step(
+            {f"agent_{i + 1}": act for i, act in enumerate(actions)}
+        )
+
+        # Process outputs
         obs_dict = {}
+        rewards_dict = {}
+        dones_dict = {}
+        infos_dict = {}
+
         for i, agent in enumerate(self.agents):
-            agent_obs = np.array(raw_obs[i], dtype=np.float64)
-            if agent_obs.shape != (39,):
-                raise ValueError(f"Agent {agent} observation has shape {agent_obs.shape}, expected (39,)")
             obs_dict[agent] = {
-                "obs": agent_obs,
-                "state": agent_obs  # State is the same as obs for centralized critic
+                "obs": self._process_observation(observations[i]),
+                "state": self._process_observation(observations[i])
             }
+            rewards_dict[agent] = float(rewards[i])
+            # dones_dict[agent] = bool(dones[i])
+            infos_dict[agent] = infos[i] if i < len(infos) else {}
+            infos_dict[agent]["eps_id"] = self._eps_id  # Track episode ID
 
-        # Ensure that all agents have valid reward, done, and info
-        rewards = {agent: rewards[i] for i, agent in enumerate(self.agents)}
-        done = {agent: done[i] for i, agent in enumerate(self.agents)}
-        done["__all__"] = all(done.values())  # Mark if all agents are done
-        info = {agent: info[i] for i, agent in enumerate(self.agents)}
+        # Enforce termination
+        timeout = self.current_step >= self.max_timesteps
+        dones_dict["__all__"] = all(dones_dict.values()) or timeout
 
-        # reshape output
-        # obs_dict = {agent: obs_dict[agent] for agent in action_dict}
-        # rewards = {agent: rewards[agent] for agent in action_dict}
-        # done = {agent: done[agent] for agent in action_dict}
-        # done["__all__"] = all(done.values())
-        # info = {agent: info[agent] for agent in action_dict}
-        # agent = choice(list(action_dict.keys()))
-        # obs_dict = {agent: obs_dict[agent]}
-        # rewards = {agent: rewards[agent]}
-        # done = {agent: done[agent] }
-        # done["__all__"] = all(done.values())
-        # info = {agent: info[agent]}
+        if dones_dict["__all__"]:
+            for agent in self.agents:
+                dones_dict[agent] = True
+                if timeout:
+                    infos_dict[agent]["timeout"] = True
 
-        return obs_dict, rewards, done, info
-
-    def render(self, mode='human'):
-        try:
-            self.env.render()
-        except Exception as e:
-            print(f"Error in render: {e}")
-            raise
+        return obs_dict, rewards_dict, dones_dict, infos_dict
 
     def get_env_info(self):
         env_info = {
             "space_obs": self.observation_space,
             "space_act": self.action_space,
-            "num_agents": self.num_agents,
+            "num_agents": self.num_cooperative,
             "episode_limit": self.max_timesteps,
             "policy_mapping_info": policy_mapping_dict
         }
         return env_info
-
