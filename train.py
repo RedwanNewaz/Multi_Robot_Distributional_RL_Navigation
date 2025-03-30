@@ -1,3 +1,4 @@
+#!/home/redwan/anaconda3/envs/Multi_Robot_Distributional_RL_Navigation/bin/python
 from marllib import marl
 from marine import MarineNavEnv  # Make sure this import path is correct
 from marllib.envs.base_env import ENV_REGISTRY
@@ -18,5 +19,7 @@ if __name__ == '__main__':
     # customize model
     model = marl.build_model(env, mappo, {"core_arch": "mlp", "encode_layer": "128-128"})
 
-    mappo.fit(env, model, local_mode=False, stop={'timesteps_total': 6000000}, checkpoint_freq=10)
+    mappo.fit(env, model, local_mode=False, stop={'timesteps_total': 6000000}, checkpoint_freq=10,
+              config={"log_level": "INFO", "tensorboard_log": "./marl_tensorboard"}
+              )
 
