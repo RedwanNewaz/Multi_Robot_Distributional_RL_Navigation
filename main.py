@@ -9,12 +9,12 @@ if __name__ == '__main__':
     env.reset()
     indexes = [0, 1, 2]
     for _ in range(150):
-        actions = []
-        for _ in range(6):
+        actions = {}
+        for i in range(6):
             a_idx = choice(indexes)
             w_idx = choice(indexes)
             a = a_idx * len(agent.w) + w_idx
-            actions.append(a)
+            actions[f"agent_{i + 1}"] = a
         observations, rewards, dones, infos = env.step(actions)
-        print(np.array(observations).shape)
+        # print(np.array(observations).shape)
         env.render()
