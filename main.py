@@ -1,3 +1,5 @@
+import numpy as np
+
 from MarineEnv3 import MarineEnv, Robot
 from random import choice
 
@@ -13,5 +15,6 @@ if __name__ == '__main__':
             w_idx = choice(indexes)
             a = a_idx * len(agent.w) + w_idx
             actions.append(a)
-        env.step(actions)
+        observations, rewards, dones, infos = env.step(actions)
+        print(np.array(observations).shape)
         env.render()

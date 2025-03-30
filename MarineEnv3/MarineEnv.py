@@ -1,16 +1,11 @@
-import numpy as np
 import scipy.spatial
 from . import robot
 import gym
 import json
 import copy
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.cm as cm
-import matplotlib as mpl
 from dataclasses import dataclass
-from copy import deepcopy
-
+import cv2
+import numpy as np
 
 @dataclass
 class Core:
@@ -61,9 +56,10 @@ class MarineEnv(gym.Env):
         self.episode_timesteps = 0
         self.total_timesteps = 0
         self.observation_in_robot_frame = True
+        self.max_timesteps = 1000
 
     def get_action_space_dimension(self):
-        return self.robot.compute_actions_dimension()
+        return self.robots[0].actions_dimension
 
     def reset(self):
         if self.schedule:
@@ -91,6 +87,7 @@ class MarineEnv(gym.Env):
         self.min_start_goal_dis = self.schedule["min_start_goal_dis"][idx]
 
     def generate_robots(self):
+        print("Generating robots... ", self.num_cooperative, self.num_non_cooperative)
         robot_types = [True] * self.num_cooperative + [False] * self.num_non_cooperative
         for _ in range(500):
             if not robot_types:
@@ -210,7 +207,7 @@ class MarineEnv(gym.Env):
         assert not self.check_all_reach_goal(), "All robots reach goals, no actions are available!"
 
         # prev_robots = deepcopy(self.robots)
-        for i, action in enumerate(actions):
+        for i, (agent, action) in enumerate(actions.items()):
             rob = self.robots[i]
             if rob.deactivated:
                 continue
@@ -259,7 +256,7 @@ class MarineEnv(gym.Env):
                 infos[idx] = {
                     "state": "deactivated after collision" if rob.collision else "deactivated after reaching goal"}
                 continue
-            if self.episode_timesteps >= 1000:
+            if self.episode_timesteps >= self.max_timesteps:
                 dones[idx] = True
                 infos[idx] = {"state": "too long episode"}
             elif collisions[idx]:
@@ -384,65 +381,127 @@ class MarineEnv(gym.Env):
             json.dump(self.episode_data(), file)
 
     def render(self, mode='human'):
-        if not self.init_display:
-            self.initialize_env()
-            self.init_display = True
-        else:
-            for i, rob in enumerate(self.robots):
-                self.robot_plots[i].center = (rob.x, rob.y)
-        plt.draw()
-        plt.pause(0.001)
+        """
+        Render the environment using OpenCV (cv2).
 
-    def initialize_env(self):
-        fig, ax = plt.subplots(figsize=(10, 10))
+        Parameters:
+        mode (str): Rendering mode, supports 'human' or 'rgb_array'
 
-        # Draw the environment boundary
-        ax.set_xlim(0, self.width)
-        ax.set_ylim(0, self.height)
+        Returns:
+        numpy.ndarray: The rendered image if mode is 'rgb_array', otherwise None
+        """
+
+
+        # Create a blank canvas (white background)
+        canvas = np.ones((int(self.height * 10), int(self.width * 10), 3), dtype=np.uint8) * 255
+
+        # Define colors
+        BLUE = (255, 144, 30)  # Cooperative robots (BGR format)
+        ORANGE = (0, 165, 255)  # Non-cooperative robots
+        RED = (0, 0, 255)  # Obstacles
+        BLACK = (0, 0, 0)  # Lines, text
+        GRAY = (200, 200, 200)  # Background flow field
+        GREEN = (0, 255, 0)  # Goals
+        YELLOW = (0, 255, 255)  # Collision state
+
+        # Draw background flow field (velocity vectors)
+        step = 3  # Grid spacing for flow field
+        for x in range(0, int(self.width), step):
+            for y in range(0, int(self.height), step):
+                pos = (int(x * 10), int(y * 10))
+                v = self.get_velocity(x, y)
+                if np.linalg.norm(v) > 0.01:
+                    v = v / np.linalg.norm(v) * 5  # Normalize and scale
+                    end_pos = (int((x + v[0]) * 10), int((y + v[1]) * 10))
+                    cv2.arrowedLine(canvas, pos, end_pos, GRAY, 1, tipLength=0.2)
 
         # Draw vortex cores
-        self.generate_background_image(ax)
+        for core in self.cores:
+            pos = (int(core.x * 10), int(core.y * 10))
+            radius = int(self.r * 10)
+            color = (255, 0, 0) if core.clockwise else (0, 0, 255)  # Red for clockwise, blue for counter-clockwise
+            cv2.circle(canvas, pos, radius, color, 2)
+            # Draw circulation strength indicator
+            # strength_radius = int(min(5, abs(core.Gamma) / 10) * 10)
+            # cv2.circle(canvas, pos, strength_radius, color, -1, lineType=cv2.LINE_AA)
+            # Draw rotation indicator
+            if core.clockwise:
+                cv2.ellipse(canvas, pos, (radius + 5, radius + 5), 0, 45, 315, color, 2, lineType=cv2.LINE_AA)
+            else:
+                cv2.ellipse(canvas, pos, (radius + 5, radius + 5), 0, 225, 135, color, 2, lineType=cv2.LINE_AA)
 
         # Draw obstacles
         for obs in self.obstacles:
-            circle = patches.Circle((obs.x, obs.y), obs.r, color='red', alpha=0.5)
-            ax.add_patch(circle)
+            pos = (int(obs.x * 10), int(obs.y * 10))
+            radius = int(obs.r * 10)
+            cv2.circle(canvas, pos, radius, RED, -1, lineType=cv2.LINE_AA)
 
-        # Draw robots
-        self.robot_plots = []
+        # Draw robots and their goals
         for rob in self.robots:
-            color = 'blue' if rob.collision else 'yellow' if rob.cooperative else 'orange'
-            circle = patches.Circle((rob.x, rob.y), rob.r, color=color, alpha=0.5)
-            ax.add_patch(circle)
-            self.robot_plots.append(circle)
-            ax.plot([rob.x, rob.goal[0]], [rob.y, rob.goal[1]], 'k--')
+            # Draw path to goal
+            start_pos = (int(rob.x * 10), int(rob.y * 10))
+            goal_pos = (int(rob.goal[0] * 10), int(rob.goal[1] * 10))
+            cv2.line(canvas, start_pos, goal_pos, BLACK, 1, lineType=cv2.LINE_AA)
 
-        ax.set_aspect('equal', 'box')
-        plt.tight_layout()
+            # Draw goal
+            cv2.circle(canvas, goal_pos, 5, GREEN, -1, lineType=cv2.LINE_AA)
 
+            # Draw robot
+            color = YELLOW if rob.collision else BLUE if rob.cooperative else ORANGE
+            cv2.circle(canvas, start_pos, int(rob.r * 10), color, -1, lineType=cv2.LINE_AA)
 
-    def generate_background_image(self, axis):
-        # plot current velocity in the map
-        x_pos = list(np.linspace(0.0, self.width, 100))
-        y_pos = list(np.linspace(0.0, self.height, 100))
+            # Draw direction indicator
+            direction_x = rob.x + rob.r * np.cos(rob.theta)
+            direction_y = rob.y + rob.r * np.sin(rob.theta)
+            direction_pos = (int(direction_x * 10), int(direction_y * 10))
+            cv2.line(canvas, start_pos, direction_pos, BLACK, 2, lineType=cv2.LINE_AA)
 
-        pos_x = []
-        pos_y = []
-        arrow_x = []
-        arrow_y = []
-        speeds = np.zeros((len(x_pos), len(y_pos)))
-        for m, x in enumerate(x_pos):
-            for n, y in enumerate(y_pos):
-                v = self.get_velocity(x, y)
-                speed = np.clip(np.linalg.norm(v), 0.1, 10)
-                pos_x.append(x)
-                pos_y.append(y)
-                arrow_x.append(v[0])
-                arrow_y.append(v[1])
-                speeds[n, m] = np.log(speed)
+            # # Draw perception field
+            # if hasattr(rob, 'perception') and hasattr(rob.perception, 'range') and hasattr(rob.perception, 'angle'):
+            #     perception_range = rob.perception.range
+            #     perception_angle = rob.perception.angle
+            #
+            #     # Create arc for perception field
+            #     start_angle = rob.theta - perception_angle / 2
+            #     end_angle = rob.theta + perception_angle / 2
+            #
+            #     # Convert to degrees for cv2.ellipse
+            #     start_angle_deg = int(np.degrees(start_angle))
+            #     end_angle_deg = int(np.degrees(end_angle))
+            #
+            #     cv2.ellipse(canvas, start_pos,
+            #                 (int(perception_range * 10), int(perception_range * 10)),
+            #                 0, start_angle_deg, end_angle_deg,
+            #                 (100, 100, 100), 1, lineType=cv2.LINE_AA)
 
-        cmap = cm.Blues(np.linspace(0, 1, 20))
-        cmap = mpl.colors.ListedColormap(cmap[10:, :-1])
+            # Draw trajectory if available
+            if hasattr(rob, 'trajectory') and len(rob.trajectory) > 1:
+                traj_points = [(int(p[0] * 10), int(p[1] * 10)) for p in rob.trajectory]
+                for i in range(1, len(traj_points)):
+                    cv2.line(canvas, traj_points[i - 1], traj_points[i], color, 1, lineType=cv2.LINE_AA)
 
-        axis.contourf(x_pos, y_pos, speeds, cmap=cmap)
-        axis.quiver(pos_x, pos_y, arrow_x, arrow_y, width=0.001, scale_units='xy', scale=2.0)
+        # Add environment info
+        info_text = [
+            f"Steps: {self.episode_timesteps}",
+            f"Cores: {len(self.cores)}",
+            f"Obstacles: {len(self.obstacles)}",
+            f"Robots: {len(self.robots)}"
+        ]
+
+        for i, text in enumerate(info_text):
+            cv2.putText(canvas, text, (10, 20 + i * 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, BLACK, 1, cv2.LINE_AA)
+
+        # Display if mode is 'human'
+        if mode == 'human':
+            cv2.imshow('Marine Environment', canvas)
+            cv2.waitKey(1)
+            return None
+
+        # Return the canvas if mode is 'rgb_array'
+        elif mode == 'rgb_array':
+            return canvas
+
+        # Close any open windows when done
+    def close(self):
+        cv2.destroyAllWindows()
