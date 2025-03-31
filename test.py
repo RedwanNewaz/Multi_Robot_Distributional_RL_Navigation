@@ -20,12 +20,9 @@ if __name__ == '__main__':
     model = marl.build_model(env, mappo, {"core_arch": "mlp", "encode_layer": "128-128"})
 
     # rendering
-    checkpoint = "exp_results/mappo_mlp_MarineNav/MAPPOTrainer_marine_env_MarineNav_2bbc2_00000_0_2025-03-30_15-04-21"
-    checkpoint = os.path.join(os.getcwd(), checkpoint)
-    # rendering
     mappo.render(env, model,
                  stop={'timesteps_total': 5000000},
-                 restore_path={'params_path': f"{checkpoint}/params.json",  # experiment configuration
+                 restore_path={'params_path': "exp_results/mappo_mlp_MarineNav/MAPPOTrainer_marine_env_MarineNav_2bbc2_00000_0_2025-03-30_15-04-21/params_test.json",  # experiment configuration
                                'model_path': "exp_results/mappo_mlp_MarineNav/MAPPOTrainer_marine_env_MarineNav_2bbc2_00000_0_2025-03-30_15-04-21/checkpoint_000290/checkpoint-290",
                                'render': True
                                },  # checkpoint path

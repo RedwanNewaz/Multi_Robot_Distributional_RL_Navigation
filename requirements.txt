@@ -18,3 +18,4 @@ importlib-metadata==4.13.0
 gym
 PyYAML
 git+https://github.com/Replicable-MARL/MARLlib.git
+tensorboard

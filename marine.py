@@ -109,6 +109,7 @@ class MarineNavEnv(MultiAgentEnv):
     def step(self, action_dict: MultiAgentDict) -> Tuple[
         MultiAgentDict, MultiAgentDict, MultiAgentDict, MultiAgentDict]:
         """Step with trajectory boundary enforcement."""
+        print(action_dict)
         self.current_step += 1
 
         # Convert actions to list format
@@ -156,3 +157,6 @@ class MarineNavEnv(MultiAgentEnv):
             "policy_mapping_info": policy_mapping_dict
         }
         return env_info
+
+    def render(self, mode="human") -> None:
+        self.env.render(mode=mode)
